@@ -65,7 +65,7 @@ unsigned int BigNumber::ToIndex(const BigNumber::digit &c_digit) {
 class BigNumber::UInt {
 protected:
     typedef enum {
-        SUB, ADD, MUL
+        OP_SUB, OP_ADD, OP_MUL, OP_DIV
     } OPERATOR;
     std::vector<BigNumber::digit> number;
     const unsigned int base;
@@ -79,49 +79,52 @@ private:
         }
     }
 
-    void BasicOP(const UInt &number, OPERATOR op) {
+    void ALU(const UInt& x, const UInt& y, OPERATOR){
+        auto x_it = x.number.begin();
+        auto y_it = y.number.begin();
+        auto x_end = x.number.end();
+        auto y_end = x.number.end();
+        unsigned int a,b,c;
         unsigned int carry = 0;
+        BigNumber::digit digit;
 
-        auto a_it = number.number.begin();
-        auto a_end = number.number.end();
-        auto b_it = this->number.begin();
-        auto b_end = this->number.end();
-
-        while (b_it != b_end || carry) {
-            unsigned int a_index = (a_it == number.number.end() ? 0 : BigNumber::ToIndex(*a_it));
-            unsigned int b_index = (b_it == this->number.end() ? 0 : BigNumber::ToIndex(*b_it));
-            BigNumber::digit digit;
-            unsigned int sum;
-            int sub;
-
-            switch (op) {
-                case ADD:
-                    sum = a_index + b_index + carry;
-                    digit = BigNumber::symbols[(sum) % (this->base)];
-                    carry = (sum) / this->base;
+        while(x_it != x_end || y_it != y_end){
+            a = x_it != x_end ? BigNumber::ToIndex(*x_it) : 0;
+            b = y_it != y_end ? BigNumber::ToIndex(*y_it) : 0;
+            switch(OPERATOR){
+                case OP_MUL:
+                    c = (carry+a)*b;
+                case OP_ADD:
+                    c = carry+a+b;
+                case OP_ADD:
+                case OP_MUL:
+                    carry = c >= x.base ? c/x.base : 0;
+                case OP_SUB:
+                    c =  carry ? (a-1) : a;
+                    c = c>=b ? c-b: ((x.base-carry)+c)-b;
+                    carry = c>=b ? 0 : carry+1;
+                case OP_MUL:
+                case OP_ADD:
+                case OP_SUB:
+                    digit = BigNumber::symbols[c%x.base];
+                case OP_MUL:
+                    x.number.push_back(digit);
+                    ++y_it;
+                    x_it = y_it == y_end? x_end : x_it;
                     break;
-                case SUB:
-                    sub = a_index - b_index - carry;
-                    carry = sub >= 0 ? 0 : carry;
-                    digit = sub >= 0 ? BigNumber::symbols[(sub) % (this->base)] : BigNumber::symbols[
-                            (sub + (this->base - (carry++))) % (this->base)];
-
+                case OP_ADD:
+                    if(x_it == x_end){
+                        x.number.push_back(digit);
+                        continue;
+                    }
+                case OP_ADD:
+                case OP_SUB:
+                    *x_it = digit;
+                    y_it = y_it == y_end ? y_it : y_it+1;
+                    x_it = x_it == x_end ? x_it : x_it+1;
                     break;
             }
-
-            if (a_it != a_end) {
-                ++a_it;
-            }
-            if (b_it != this->number.end()) {
-                *b_it = digit;
-                ++b_it;
-            } else {
-                this->number.push_back(digit);
-            }
-
         }
-
-        this->RemoveOpeningZeros();
     }
 
 public:
